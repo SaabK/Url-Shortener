@@ -1,37 +1,49 @@
 const express = require('express');
-const mongoose = require('mongoose');
-const ShortUrls = require('./models/shortUrls');
+const shortid = require('shortid');
 const app = express();
 const port = process.env.PORT || 5000;
-
-mongoose.connect('mongodb://localhost:27017/urlShortener');
+const shortUrls = [];
 
 app.set('view engine', 'ejs');
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.get('/', async (req, res) => {
-	const shortUrls = await ShortUrls.find();
-
 	res.render('index', { shortUrls });
 });
 
 app.post('/shortUrls', async (req, res) => {
 	const { fullUrl } = req.body;
 
-	await ShortUrls.create({ full: fullUrl });
+	if (fullUrl == '') return res.redirect('/');
+
+	const newShortUrl = {
+		full: fullUrl,
+		short: shortid.generate(),
+		clicks: 0,
+	};
+
+	shortUrls.push(newShortUrl);
+
 	res.redirect('/');
 });
 
-app.get('/:shortUrls', async (req, res) => {
-	const { shortUrls } = req.params;
-	const thatOneUrl = await ShortUrls.findOne({ short: shortUrls });
-	console.log(thatOneUrl);
+app.get('/:shortUrl', async (req, res) => {
+	const { shortUrl } = req.params;
+
+	const thatOneUrl = shortUrls.find((url) => url.short == shortUrl);
+
 	if (thatOneUrl == null)
 		return res.status(404).json({ error: 'No such url exisits' });
 
-	thatOneUrl.clicks++;
-	thatOneUrl.save();
+	shortUrls.map((url) => {
+		if (url.short == shortUrl) {
+			return {
+				...url,
+				clicks: (url.clicks += 1),
+			};
+		}
+	});
 
 	res.redirect(thatOneUrl.full);
 });
